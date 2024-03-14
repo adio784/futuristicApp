@@ -5,12 +5,16 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use Exception;
 use Illuminate\Http\Request;
+use App\Models\PasswordReset;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Validation\ValidationException;
 use App\Notifications\PasswordResetNotification;
+use Illuminate\Support\Str;
+use Carbon\Carbon;
+use Illuminate\Support\Facades\URL;
 // use Laravolt\Avatar\Avatar as Avatar;
 use Laravolt\Avatar\Facade as Avatar;
 
@@ -132,16 +136,20 @@ class AuthController extends Controller
             //     'statusCode'    => 200,
             //     'message'       => $User
             // ]);
+            $token = Str::random(60);
 
-            $token = Password::getRepository()->create($User->email);
-            $User->notify(new PasswordResetNotification($token));
+            PasswordReset::create([
+                'email' => $User->email_address,
+                'token' => Hash::make($token), // Store hashed token
+                'created_at' => now()
+            ]);
+            $url = URL('/') . '/password/reset?token=' . urlencode($token);
 
             return response()->json([
                 'success'       => true,
                 'statusCode'    => 200,
                 'message'       => 'Reset Link Has Been Sent To The Email Address You Entered'
             ]);
-
         } else {
 
             return response()->json([
@@ -161,40 +169,61 @@ class AuthController extends Controller
             'token'             => 'required|string',
         ]);
 
-        $User = User::where('email', $request->email_address)->firstOrFail();
+        $token = $request->token;
+        $passwordReset = PasswordReset::where('token', Hash::make($token))->first();
+        $User = User::where('email', $passwordReset->email)->firstOrFail();
 
-
-        if (!empty($User)) {
-
-            // $token = Password::getRepository()->create($User);
-            $response = Password::reset($request->only('email', 'password', 'password_confirmation', 'token'), function ($user, $password) {
-                $user->password = Hash::make($password);
-                $user->save();
-            });
-
-            if ($response) {
-
-                return response()->json([
-                    'success'       => true,
-                    'statusCode'    => 200,
-                    'message'       => 'You Password Has Been Successfully Reset !!!'
-                ]);
-            } else {
-
-                return response()->json([
-                    'success'       => false,
-                    'statusCode'    => 400,
-                    'message'       => 'Password Reset Failed !!!'
-                ]);
-            }
-        } else {
-
+        if (!$passwordReset || Carbon::parse($passwordReset->created_at)->addMinutes(60)->isPast()) {
             return response()->json([
                 'success'       => false,
                 'statusCode'    => 400,
-                'message'       => 'Email Address Not Found !!!'
+                'message'       => 'Token not found or expired !!!'
             ]);
         }
+
+        $User->update([
+            'password' => Hash::make($request->password)
+        ]);
+
+        $passwordReset->delete();
+
+        return response()->json([
+                        'success'       => true,
+                        'statusCode'    => 200,
+                        'message'       => 'You Password Has Been Successfully Reset !!!'
+                    ]);
+
+        // if (!empty($User)) {
+
+        //     // $token = Password::getRepository()->create($User);
+        //     $response = Password::reset($request->only('email', 'password', 'password_confirmation', 'token'), function ($user, $password) {
+        //         $user->password = Hash::make($password);
+        //         $user->save();
+        //     });
+
+        //     if ($response) {
+
+        //         return response()->json([
+        //             'success'       => true,
+        //             'statusCode'    => 200,
+        //             'message'       => 'You Password Has Been Successfully Reset !!!'
+        //         ]);
+        //     } else {
+
+        //         return response()->json([
+        //             'success'       => false,
+        //             'statusCode'    => 400,
+        //             'message'       => 'Password Reset Failed !!!'
+        //         ]);
+        //     }
+        // } else {
+
+        //     return response()->json([
+        //         'success'       => false,
+        //         'statusCode'    => 400,
+        //         'message'       => 'Email Address Not Found !!!'
+        //     ]);
+        // }
     }
 
     //Logout Methods
