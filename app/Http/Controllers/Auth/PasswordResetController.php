@@ -29,7 +29,7 @@ class PasswordResetController extends Controller
         return new JsonResponse(
             [
                 'status'    => true,
-                'messaga'   => 'Password Successfully Reset',
+                'message'   => 'Password Successfully Reset',
                 'token'     => $token
             ],
             200
