@@ -5,157 +5,67 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use Exception;
 use Illuminate\Http\Request;
+use App\Mail\VerifyEmail;
 use App\Models\PasswordReset;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules;
 use Illuminate\Support\Facades\Password;
-use Illuminate\Validation\ValidationException;
 use App\Notifications\PasswordResetNotification;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\URL;
+use Illuminate\Support\Facades\Validator;
 // use Laravolt\Avatar\Avatar as Avatar;
 use Laravolt\Avatar\Facade as Avatar;
 
 class AuthController extends Controller
 {
-    //
-
-    //Login Methods
-    public function login(Request $request)
+    //verify email method
+    public function verifyEmail(Request $request)
     {
-        $request->validate([
-            'username' => 'required',
-            'password' => 'required',
-        ]);
+        try {
 
-        $User = User::where('email_address', $request->username)->orWhere('phone_number', $request->username)->firstOrFail();
+            $request->validate([
+                'token' => ['required']
+            ]);
 
-        if ($User->count('id') > 0) {
+            $checkToken = PasswordReset::where('email', Auth::user()->email)->where('token', $request->token);
 
-            if (!Auth::attempt($request->only('username', 'password')) && !Auth::attempt($request->only('phone_number', 'password'))) {
-                throw ValidationException::withMessages([
-                    'Email /Phone' => ['The provided credentials are incorrect.'],
+            if ( $checkToken->get()->isEmpty() ) {
+
+                return response()->json([
+                    'success'       => false,
+                    'statusCode'    => 400,
+                    'message'       => 'Invalid PIN'
+                ]);
+
+            } else {
+
+                PasswordReset::where('email', Auth::user()->email)->where('token', $request->token)->delete();
+
+                $User = User::find(Auth::user()->id);
+                // $User = User::whereId(Auth::user()->id)->first();
+                $User->email_verified_at = Carbon::now()->getTimestamp();
+                $User->save();
+
+                return response()->json([
+                    'success'       => true,
+                    'statusCode'    => 200,
+                    'message'       => 'Email Verified ...'
                 ]);
             }
 
-            $user = Auth::user();
-            $accessToken = $User->createToken('auth_token')->plainTextToken; //$User->createToken('Personal Access Token')->plainTextToken; //$User->createToken('api-token')->plainTextToken;
-
-            User::whereId($user->id)
-                ->update([
-                    'online'    => true,
-                ]);
-
-            return response()->json([
-                'success'       => true,
-                'statusCode'    => 200,
-                'message'       => 'Account Successfully Created !!!',
-                'access_token'  => $accessToken,
-                'token_type'    => 'Bearer',
-                'User'          =>  $User,
-            ]);
-        } else {
-
-            return response()->json([
-                'success'       => false,
-                'statusCode'    => 400,
-                'message'       => 'No Account Found for this User !!!'
-            ]);
-        }
-    }
-
-
-    public function register(Request $request)
-    {
-        $request->validate([
-            'firstname'     => 'required|string|max:255',
-            'lastname'      => 'required|string|max:255',
-            'gender'        => 'required|string|max:12',
-            'birth_day'     => 'required|integer|max:31',
-            'birth_month'   => 'required|string|max:55',
-            'birth_year'    => 'required|integer|max:2024',
-            'password'      => ['required', 'confirmed', 'string', 'max:255', 'min:8', Rules\Password::defaults()],
-        ]);
-        $fullname = $request->lastname . ' ' . $request->firstname;
-        $uniqId = strtolower($request->lastname) . '.' . strtolower($request->firstname) . '@futuristics.com';
-        // Avatar::create($fullname)->toBase64(); Avatar::create($fullname)->save(storage_path(path: 'Avatars/avatar-' . $request->lastname[0] . $request->firstname . '.png'));
-        $path = public_path('Avatars/avatar-');
-        $ProfileImage = Avatar::create($fullname)->tosvg();
-
-        try {
-            $Create                 = new User();
-            $Create->firstname      = $request->firstname;
-            $Create->lastname       = $request->lastname;
-            $Create->username       = $uniqId;
-            $Create->email_address  = $uniqId;
-            $Create->gender         = $request->gender;
-            $Create->birth_day      = $request->birth_day;
-            $Create->birth_month    = $request->birth_month;
-            $Create->birth_year     = $request->birth_year;
-            $Create->profile_image  = $ProfileImage;
-            $Create->password       = Hash::make($request->password);
-            $Create->save();
-
-            $token = $Create->createToken('auth_token')->plainTextToken;
-
-            $Create->save();
-
-            return response()->json([
-                'success'       => true,
-                'statusCode'    => 200,
-                'access_token'  => $token,
-                'token_type'    => 'Bearer',
-                'email'         => $uniqId,
-                'message'       => 'Account Successfully Created !!!'
-            ]);
         } catch (Exception $e) {
 
             return response()->json([
                 'success'       => false,
                 'statusCode'    => 400,
+                'err'           => 'Error is here' . Auth::user()->id,
                 'message'       => $e,
-            ]);
-        }
-    }
-
-    //send reset link Method
-    public function sendResetLinkEmail(Request $request)
-    {
-        $request->validate([
-            'email_address'     => 'required|email',
-        ]);
-
-        $User = User::where('email_address', $request->email_address)->first();
-
-        if (!empty($User)) {
-
-            // return response()->json([
-            //     'success'       => true,
-            //     'statusCode'    => 200,
-            //     'message'       => $User
-            // ]);
-            $token = Str::random(60);
-
-            PasswordReset::create([
-                'email' => $User->email_address,
-                'token' => Hash::make($token), // Store hashed token
-                'created_at' => now()
-            ]);
-            $url = URL('/') . '/password/reset?token=' . urlencode($token);
-
-            return response()->json([
-                'success'       => true,
-                'statusCode'    => 200,
-                'message'       => 'Reset Link Has Been Sent To The Email Address You Entered'
-            ]);
-        } else {
-
-            return response()->json([
-                'success'       => false,
-                'statusCode'    => 400,
-                'message'       => 'Email Address Not Found !!!'
             ]);
         }
     }
@@ -171,7 +81,7 @@ class AuthController extends Controller
 
         $token = $request->token;
         $passwordReset = PasswordReset::where('token', Hash::make($token))->first();
-        $User = User::where('email', $passwordReset->email)->firstOrFail();
+        $User = User::where('email', $passwordReset->email)->first();
 
         if (!$passwordReset || Carbon::parse($passwordReset->created_at)->addMinutes(60)->isPast()) {
             return response()->json([
@@ -188,62 +98,56 @@ class AuthController extends Controller
         $passwordReset->delete();
 
         return response()->json([
-                        'success'       => true,
-                        'statusCode'    => 200,
-                        'message'       => 'You Password Has Been Successfully Reset !!!'
-                    ]);
-
-        // if (!empty($User)) {
-
-        //     // $token = Password::getRepository()->create($User);
-        //     $response = Password::reset($request->only('email', 'password', 'password_confirmation', 'token'), function ($user, $password) {
-        //         $user->password = Hash::make($password);
-        //         $user->save();
-        //     });
-
-        //     if ($response) {
-
-        //         return response()->json([
-        //             'success'       => true,
-        //             'statusCode'    => 200,
-        //             'message'       => 'You Password Has Been Successfully Reset !!!'
-        //         ]);
-        //     } else {
-
-        //         return response()->json([
-        //             'success'       => false,
-        //             'statusCode'    => 400,
-        //             'message'       => 'Password Reset Failed !!!'
-        //         ]);
-        //     }
-        // } else {
-
-        //     return response()->json([
-        //         'success'       => false,
-        //         'statusCode'    => 400,
-        //         'message'       => 'Email Address Not Found !!!'
-        //     ]);
-        // }
-    }
-
-    //Logout Methods
-    public function logout(Request $request)
-    {
-
-        $user = Auth::user();
-        $request->user()->tokens()->delete();
-
-        User::whereId($user->id)
-            ->update([
-                'online'    => false,
-            ]);
-
-        return response()->json([
             'success'       => true,
-            'statusCode'    => '200',
-            'message'       =>  'Account Successfully Logged Out !!!',
+            'statusCode'    => 200,
+            'message'       => 'You Password Has Been Successfully Reset !!!'
         ]);
     }
+
+    // resend verification pin
+    public function resendPIN(Request $request)
+    {
+        try {
+
+            $request->validate([
+                'email' => ['required', 'string', 'email', 'max:255']
+            ]);
+
+            $chkEmail = DB::table('password_resets')->where('email', $request->email);
+
+            if ($chkEmail->exists()) {
+                $chkEmail->delete();
+            }
+
+            $token = random_int(100000, 999999);
+            $passwordReset = DB::table('password_resets')
+                ->insert([
+                    'email'         => $request->email,
+                    'token'         => $token,
+                    'created_at'    => Carbon::now()
+                ]);
+
+            if ($passwordReset) {
+
+                Mail::to($request->email)->send(new VerifyEmail($token));
+
+                return response()->json([
+                    'success'       => true,
+                    'statusCode'    => 200,
+                    'message'       => 'A new verification mail has been sent !!!',
+                ]);
+            }
+        } catch (Exception $e) {
+
+            return response()->json([
+                'success'       => false,
+                'statusCode'    => 400,
+                'message'       => $e,
+            ]);
+        }
+    }
+
+
 
 
     public function user(Request $request)

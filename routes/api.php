@@ -1,5 +1,9 @@
 <?php
 
+use App\Http\Controllers\Auth\ForgotPasswordController;
+use App\Http\Controllers\Auth\RegisterController;
+use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\Auth\PasswordResetController;
 use App\Http\Controllers\AuthController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -21,23 +25,24 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 
 Route::group(['prefix' => 'auth'], function () {
 
-    Route::post('/login', [AuthController::class, 'login']);
-    Route::post('/register', [AuthController::class, 'register']);
-    Route::post('/password-reset', [AuthController::class, 'sendResetLinkEmail']);
-    Route::post('/password/reset', [AuthController::class, 'sendResetLinkEmail']);
+    Route::post('/login', [LoginController::class, 'login']);
+    Route::post('/register', [RegisterController::class, 'register']);
+    Route::post('/email/resend/token', [AuthController::class, 'resendPIN']);
+    Route::post('/forgot-password', [ForgotPasswordController::class, 'forgotPassword']);
+    Route::post('/verify-pin', [ForgotPasswordController::class, 'verifyPin']);
+    Route::post('/reset-password', [PasswordResetController::class, 'resetPassword']);
+});
 
-    Route::group(['middleware' => 'auth:sanctum'], function () {
-        Route::get('/logout', [AuthController::class, 'logout']);
-        Route::get('/user', [AuthController::class, 'user']);
-    });
+Route::group(['middleware' => 'auth:sanctum'], function () {
+    Route::post('/email/verify', [AuthController::class, 'verifyEmail']);
+    Route::get('/logout', [AuthController::class, 'logout']);
+    Route::get('/user', [AuthController::class, 'user']);
 });
 
 
 
-
-Route::group(['middleware' => 'auth:sanctum'], function() {
+Route::group(['middleware' => 'auth:sanctum'], function () {
     Route::post('/create_booking', [AuthController::class, 'create']);
     Route::get('/all_pricing', [AuthController::class, 'index']);
     Route::get('/get_price/{id}', [AuthController::class, 'byId']);
-
 });
