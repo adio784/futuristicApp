@@ -35,7 +35,7 @@ class LoginController extends Controller
 
             User::whereId($user->id)
                 ->update([
-                    'online'    => true,
+                    'isOnline'    => true,
                 ]);
 
             return response()->json([

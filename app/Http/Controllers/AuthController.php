@@ -183,4 +183,9 @@ class AuthController extends Controller
 
         return 'profiles/' . $filename;
     }
+
+    public function serviceworker()
+    {
+        return view('service-worker');
+    }
 }

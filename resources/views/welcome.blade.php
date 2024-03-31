@@ -11,6 +11,20 @@
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=figtree:400,600&display=swap" rel="stylesheet" />
 
+    {{-- Push notification and service-worker --}}
+    <script src="{{ asset('service-worker.js') }}"></script>
+    <script src="https://js.pusher.com/beams/1.0/push-notifications-cdn.js"></script>
+    <script>
+        const beamsClient = new PusherPushNotifications.Client({
+            instanceId: '8b3b569d-f1f8-4b0d-a20a-ef91aaf64e0a',
+        });
+
+        beamsClient.start()
+            .then(() => beamsClient.addDeviceInterest('hello'))
+            .then(() => console.log('Successfully registered and subscribed!'))
+            .catch(console.error);
+    </script>
+
     <!-- Styles -->
     <style>
         /* ! tailwindcss v3.2.4 | MIT License | https://tailwindcss.com */
@@ -875,7 +889,13 @@
                                 </svg>
 
                                 {{-- Laravel Avatar --}}
-                                <svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><circle cx="50" cy="50" r="49.5" stroke="#FF9800" stroke-width="1" fill="#FF9800" /><text font-size="48" fill="#FFFFFF" x="50%" y="50%" dy=".1em" style="line-height:1" alignment-baseline="middle" text-anchor="middle" dominant-baseline="central">AR</text></svg>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"
+                                    viewBox="0 0 100 100">
+                                    <circle cx="50" cy="50" r="49.5" stroke="#FF9800" stroke-width="1"
+                                        fill="#FF9800" /><text font-size="48" fill="#FFFFFF" x="50%" y="50%"
+                                        dy=".1em" style="line-height:1" alignment-baseline="middle"
+                                        text-anchor="middle" dominant-baseline="central">AR</text>
+                                </svg>
                             </div>
 
                             <h2 class="mt-6 text-xl font-semibold text-gray-900 dark:text-white">Documentation</h2>

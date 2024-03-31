@@ -5,6 +5,8 @@ use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\PasswordResetController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\ChatController;
+use App\Http\Controllers\StreamController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -36,10 +38,19 @@ Route::group(['prefix' => 'auth'], function () {
 Route::group(['middleware' => 'auth:sanctum'], function () {
     Route::post('/email/verify', [AuthController::class, 'verifyEmail']);
     Route::get('/logout', [AuthController::class, 'logout']);
+
+
     Route::get('/user', [AuthController::class, 'user']);
+
+    Route::post('/messages', [ChatController::class, 'message']);
+    Route::post('/view-messages', [ChatController::class, 'view']);
+    Route::post('/send-message', [ChatController::class, 'send']);
+
+    Route::post('/start-stream', [StreamController::class, 'start']);
+    Route::post('/stop-stream', [StreamController::class, 'stop']);
 });
 
-
+Route::get('/service-worker', [AuthController::class, 'serviceworker']);
 
 Route::group(['middleware' => 'auth:sanctum'], function () {
     Route::post('/create_booking', [AuthController::class, 'create']);
